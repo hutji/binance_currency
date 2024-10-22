@@ -20,7 +20,7 @@ async def get_rates_by_symbol(
     symbol: str, db: AsyncSession = Depends(get_async_db)
 ):
     result = await db.execute(
-        select(CurrencyRate).filter(CurrencyRate.symbol == symbol).first()
+        select(CurrencyRate).filter(CurrencyRate.symbol == symbol)
     )
     rate = result.scalars().first()
     if rate is None:
