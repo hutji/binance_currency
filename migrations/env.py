@@ -15,9 +15,11 @@ fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+
 
 def run_migrations_offline():
-    url = os.getenv("DATABASE_URL")
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
