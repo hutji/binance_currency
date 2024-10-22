@@ -3,7 +3,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from dotenv import load_dotenv
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy.ext.asyncio import AsyncConnection, create_async_engine
 
 from app.models import Base
 
@@ -31,23 +31,26 @@ def run_migrations_offline():
         context.run_migrations()
 
 
-def run_migrations_online():
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
+def do_run_migrations(connection: AsyncConnection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
     )
 
-    with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+    with context.begin_transaction():
+        context.run_migrations()
 
-        with context.begin_transaction():
-            context.run_migrations()
+
+async def run_migrations_online():
+    engine = create_async_engine(config.get_main_option("sqlalchemy.url"))
+
+    async with engine.connect() as connection:
+        await connection.run_sync(do_run_migrations)
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    import asyncio
+
+    asyncio.run(run_migrations_online())
