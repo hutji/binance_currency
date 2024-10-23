@@ -43,8 +43,16 @@ async def save_rates_to_db(rates):
 
 
 async def update_redis_cache(rates):
-    await redis_client.set("all_rates", json.dumps(rates))
-    logger.info("Курсы обновлены в редисе")
+    try:
+        for rate in rates:
+            symbol = rate["symbol"]
+            await redis_client.set(f"rate_{symbol}", json.dumps(rate))
+            logger.info(f"Курс для {symbol} обновлен в редисе")
+
+        await redis_client.set("all_rates", json.dumps(rates))
+        logger.info("Общий список курсов обновлен в редисе")
+    except Exception as err:
+        print(f"Ошибка при обновлении кэша: {err}")
 
 
 async def worker():

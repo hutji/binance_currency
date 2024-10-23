@@ -38,13 +38,18 @@ async def get_rates(db: AsyncSession = Depends(get_async_db)):
 
 @app.get("/rates/{symbol}")
 async def get_rates_by_symbol(
-    symbol: str, db: AsyncSession = Depends(get_async_db)
+    symbol: str,
+    db: AsyncSession = Depends(get_async_db),
+    refresh: bool = False,
 ):
     logger.info(f"Получаем стоимость по символу {symbol}")
-    cached_rate = await redis_client.get(f"rate_{symbol}")
-    if cached_rate:
-        logger.info(f"Возвращем кешированную стоимость по символу {symbol}")
-        return json.loads(cached_rate)
+    if not refresh:
+        cached_rate = await redis_client.get(f"rate_{symbol}")
+        if cached_rate:
+            logger.info(
+                f"Возвращем кешированную стоимость по символу {symbol}"
+            )
+            return json.loads(cached_rate)
 
     result = await db.execute(
         select(CurrencyRate).filter(CurrencyRate.symbol == symbol)
