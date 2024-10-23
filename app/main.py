@@ -2,6 +2,7 @@ import json
 
 import redis.asyncio as redis
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.websockets import WebSocket
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -45,3 +46,16 @@ async def get_rates_by_symbol(
         )
     await redis_client.set(f"rate_{symbol}", json.dumps(rate.to_dict()))
     return rate
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Сообщение: {data}")
+    except Exception as err:
+        print(err)
+    finally:
+        await websocket.close()
