@@ -1,14 +1,20 @@
 import asyncio
+import json
 import os
 
 import aiohttp
+import redis.asyncio as redis
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.logger import setup_logger
 from app.models import CurrencyRate
 
 load_dotenv()
+
+redis_client = redis.Redis(host="redis", port=6379, decode_responses=True)
+logger = setup_logger()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 engine = create_async_engine(DATABASE_URL, echo=True)
@@ -21,6 +27,7 @@ async def get_binance_rates():
     url = "https://api.binance.com/api/v3/ticker/price"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
+            logger.info("Получение курса валют по api")
             return await response.json()
 
 
@@ -32,12 +39,19 @@ async def save_rates_to_db(rates):
             )
             db.add(db_rate)
         await db.commit()
+        logger.info("Курсы сохранены в БД")
+
+
+async def update_redis_cache(rates):
+    await redis_client.set("all_rates", json.dumps(rates))
+    logger.info("Курсы обновлены в редисе")
 
 
 async def worker():
     while True:
         rates = await get_binance_rates()
         await save_rates_to_db(rates)
+        await update_redis_cache(rates)
         await asyncio.sleep(60)
 
 
