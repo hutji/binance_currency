@@ -1,8 +1,9 @@
+import asyncio
 import json
 
 import redis.asyncio as redis
 from fastapi import Depends, FastAPI, HTTPException
-from fastapi.websockets import WebSocket
+from fastapi.websockets import WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -14,6 +15,8 @@ app = FastAPI()
 logger = setup_logger()
 
 redis_client = redis.Redis(host="redis", port=6379, decode_responses=True)
+
+active_connections = []
 
 
 @app.get("/rates")
@@ -58,12 +61,38 @@ async def get_rates_by_symbol(
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger.info("Установлено соединение с вебсокетом")
+    active_connections.append(websocket)
+
     try:
         while True:
             data = await websocket.receive_text()
             logger.info(f"Получено сообщение: {data}")
             await websocket.send_text(f"Сообщение: {data}")
+    except WebSocketDisconnect:
+        logger.info("Клиент отключился")
     except Exception as err:
-        print(err)
+        logger.error(f"Ошибка: {err}")
     finally:
-        await websocket.close()
+        active_connections.remove(websocket)
+        logger.info("Соединение закрыто")
+
+
+async def broadcast_rates():
+    while True:
+        cached_rates = await redis_client.get("all_rates")
+        if cached_rates:
+            logger.info("Отправка обновлений курсов валют через вебсокеты")
+            for connection in active_connections:
+                try:
+                    await connection.send_text(cached_rates)
+                    logger.info(
+                        f"Отправлено обновление курсов валют через вебсокет: {connection}"
+                    )
+                except Exception as err:
+                    logger.error(
+                        f"Ошибка отправки обновления курсов валют через вебсокет: {connection}, ошибка: {err}"
+                    )
+        await asyncio.sleep(10)
+
+
+asyncio.create_task(broadcast_rates())
