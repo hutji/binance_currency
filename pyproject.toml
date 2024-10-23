@@ -19,6 +19,7 @@ requests = "^2.32.3"
 asyncio = "^3.4.3"
 aiohttp = "^3.10.10"
 asyncpg = "^0.30.0"
+aioredis = "2.0.1"
 
 
 [build-system]

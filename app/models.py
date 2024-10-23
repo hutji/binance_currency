@@ -9,3 +9,10 @@ class CurrencyRate(Base):
     id = Column(Integer, primary_key=True, index=True)
     symbol = Column(String, index=True)
     price = Column(Float)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "symbol": self.symbol,
+            "price": self.price,
+        }
